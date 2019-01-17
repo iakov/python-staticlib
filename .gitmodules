@@ -1,0 +1,6 @@
+[submodule "cpython.git"]
+	path = cpython.git
+	url = https://github.com/python/cpython
+[submodule "static-python.git"]
+	path = static-python.git
+	url = https://github.com/bendmorris/static-python

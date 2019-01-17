@@ -31,7 +31,7 @@ config.status:
 		--prefix="$(PREFIX)" $(CONF_ARGS)
 venv: ${MAKEFILE_DIR}venv
 
-${MAKEFILE_DIR}/venv: .FORCE
+${MAKEFILE_DIR}venv: .FORCE
 	python3 -m virtualenv -p python3 $@
 
 python: setup Makefile

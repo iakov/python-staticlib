@@ -22,6 +22,8 @@ ${PYTHON}: venv
 	$@ -m pip install cython
 
 Makefile: setup config.status
+	./config.status
+
 config.status:
 	./configure LDFLAGS="-Wl,-no-export-dynamic -static-libgcc -static $(LDFLAGS) $(INCLUDE)" \
 		CPPFLAGS="-I/usr/lib -static -fPIC $(CPPLAGS) $(INCLUDE)" LINKFORSHARED=" " \
@@ -33,7 +35,7 @@ ${MAKEFILE_DIR}/venv: .FORCE
 	python3 -m virtualenv -p python3 $@
 
 python: setup Makefile
-	make $(MAKE_ARGS) altbininstall libainstall inclinstall
+	+ make $(MAKE_ARGS) altbininstall libainstall inclinstall
 
 clean:
 	rm -f Makefile Modules/Setup

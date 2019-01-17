@@ -1,1 +1,39 @@
-Static.make
+.PHONY: all setup clean venv .FORCE
+MAKEFILE_DIR=$(dir $(realpath $(firstword $(MAKEFILE_LIST))))
+all: python
+setup: Modules/Setup
+
+PYTHON=${MAKEFILE_DIR}venv/bin/python3
+PREFIX=${MAKEFILE_DIR}install
+CONF_ARGS=
+MAKE_ARGS=
+BUILTINS=
+override BUILTINS+= array cmath math _struct time _operator _testcapi _random _collections _heapq itertools _functools _elementtree _pickle _datetime _bisect unicodedata atexit _weakref datetime
+SCRIPT=
+DFLAG=
+CPPFLAGS=
+LDFLAGS=
+
+Modules/Setup: venv config.status ${PYTHON} ${MAKEFILE_DIR}add_builtins.py
+	sed -e 's/#\*shared\*/\*static\*/g' -i Modules/Setup
+	${PYTHON} ${MAKEFILE_DIR}add_builtins.py $(BUILTINS) $(DFLAG) -s $(SCRIPT)
+
+${PYTHON}: venv
+	$@ -m pip install cython
+
+Makefile: setup config.status
+config.status:
+	./configure LDFLAGS="-Wl,-no-export-dynamic -static-libgcc -static $(LDFLAGS) $(INCLUDE)" \
+		CPPFLAGS="-I/usr/lib -static -fPIC $(CPPLAGS) $(INCLUDE)" LINKFORSHARED=" " \
+		DYNLOADFILE="dynload_stub.o" --disable-shared \
+		--prefix="$(PREFIX)" $(CONF_ARGS)
+venv: ${MAKEFILE_DIR}venv
+
+${MAKEFILE_DIR}/venv: .FORCE
+	python3 -m virtualenv -p python3 $@
+
+python: setup Makefile
+	make $(MAKE_ARGS) altbininstall libainstall inclinstall
+
+clean:
+	rm -f Makefile Modules/Setup

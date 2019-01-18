@@ -1,41 +1,81 @@
-.PHONY: all setup clean venv .FORCE
+.PHONY: all staticlib setup clean check venv .FORCE
+.SUFFIXES:
 MAKEFILE_DIR=$(dir $(realpath $(firstword $(MAKEFILE_LIST))))
-all: python
-setup: Modules/Setup
+all: staticlib check
 
-PYTHON=${MAKEFILE_DIR}venv/bin/python3
+PYTHON_EXTERNAL=${MAKEFILE_DIR}venv/bin/python
+STATIC_PYTHON_VERSION=3.5
 PREFIX=${MAKEFILE_DIR}install
+PKG_CONFIG_PC=${PREFIX}/lib/pkgconfig/python-${STATIC_PYTHON_VERSION}.pc
+PYTHON_STATIC_LIB=${PREFIX}/lib/libpython${STATIC_PYTHON_VERSION}m.a
+
 CONF_ARGS=
 MAKE_ARGS=
 BUILTINS=
-override BUILTINS+= array cmath math _struct time _operator _testcapi _random _collections _heapq itertools _functools _elementtree _pickle _datetime _bisect unicodedata atexit _weakref datetime
-SCRIPT=
-DFLAG=
-CPPFLAGS=
-LDFLAGS=
+override BUILTINS+= array cmath math \
+	_struct time \
+	_random _collections _heapq itertools \
+	_functools _elementtree \
+	_bisect unicodedata atexit _weakref \
+	_operator _pickle _datetime \
+	datetime \
+	encodings \
 
-Modules/Setup: venv config.status ${PYTHON} ${MAKEFILE_DIR}add_builtins.py
-	sed -e 's/#\*shared\*/\*static\*/g' -i Modules/Setup
-	${PYTHON} ${MAKEFILE_DIR}add_builtins.py $(BUILTINS) $(DFLAG) -s $(SCRIPT)
+# Python3 only \
+_operator _datetime _pickle 	
 
-${PYTHON}: venv
-	$@ -m pip install cython
+# \
+
+CPPFLAGS=-static
+CFLAGS=-static -fPIC -O2
+LDFLAGS=-static
+
+setup: Modules/Setup
+.PHONY: builtins
+
+staticlib: ${PYTHON_STATIC_LIB} ${PKG_CONFIG_PC}
+
+builtins: ${PYTHON_EXTERNAL} ${MAKEFILE_DIR}add_builtins.py
+	mkdir -p Modules/extras/
+	sed -e 's/#\*shared\*/\*static\*/g' -i Modules/Setup{.dist,}
+	$^ ${BUILTINS}#-s ${MAKEFILE_DIR}script.py
+
+Modules/Setup: config.status
+
+${PYTHON_EXTERNAL}: venv
 
 Makefile: setup config.status
 	./config.status
 
 config.status:
-	./configure LDFLAGS="-Wl,-no-export-dynamic -static-libgcc -static $(LDFLAGS) $(INCLUDE)" \
-		CPPFLAGS="-I/usr/lib -static -fPIC $(CPPLAGS) $(INCLUDE)" LINKFORSHARED=" " \
+	./configure LDFLAGS="-Wl,-no-export-dynamic -static-libgcc $(LDFLAGS) $(INCLUDE)" \
+		CFLAGS="$(CFLAGS)" CPPFLAGS="${CPPFLAGS}" ARFLAGS=rcP LINKFORSHARED=" " \
 		DYNLOADFILE="dynload_stub.o" --disable-shared \
 		--prefix="$(PREFIX)" $(CONF_ARGS)
 venv: ${MAKEFILE_DIR}venv
 
-${MAKEFILE_DIR}venv: .FORCE
+${MAKEFILE_DIR}venv: #.FORCE
 	python3 -m virtualenv -p python3 $@
+	${PYTHON_EXTERNAL} -m pip install cython
 
-python: setup Makefile
-	+ make $(MAKE_ARGS) altbininstall libainstall inclinstall
+${PYTHON_STATIC_LIB} : Makefile setup
+	+ make $(MAKE_ARGS) altbininstall libainstall
+
+pybuilddir.txt:
+	pwd > $@
+
+${PKG_CONFIG_PC}:${PYTHON_STATIC_LIB} 
+	+ make $(MAKE_ARGS) inclinstall
+
 
 clean:
 	rm -f Makefile Modules/Setup
+
+check: ${MAKEFILE_DIR}test.exe
+	$<
+
+%.exe : %.o  staticlib
+	${CC} -Wl,-no-export-dynamic -static-libgcc -static -o $@ $< ${LDFLAGS} $(shell pkg-config --libs ${PKG_CONFIG_PC}) $(shell pkg-config --libs-only-l --static ${PKG_CONFIG_PC}) -lm
+
+%.o: %.c staticlib 
+	${CC} -c $< -o $@ ${CFLAGS}  $(shell pkg-config --cflags ${PKG_CONFIG_PC})

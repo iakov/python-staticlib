@@ -13,18 +13,14 @@ CONF_ARGS=
 MAKE_ARGS=
 BUILTINS=
 override BUILTINS+= array cmath math \
-	_struct time \
+	_struct time _operator _testcapi \
 	_random _collections _heapq itertools \
-	_functools _elementtree \
+	_functools _elementtree _pickle _datetime \
 	_bisect unicodedata atexit _weakref \
-	_operator _pickle _datetime \
-	datetime \
-	encodings \
-
-# Python3 only \
-_operator _datetime _pickle 	
 
 # \
+	datetime \
+	encodings \
 
 CPPFLAGS=-static
 CFLAGS=-static -fPIC -O2
@@ -67,7 +63,6 @@ pybuilddir.txt:
 ${PKG_CONFIG_PC}:${PYTHON_STATIC_LIB} 
 	+ make $(MAKE_ARGS) inclinstall
 
-
 clean:
 	rm -f Makefile Modules/Setup
 
@@ -75,7 +70,7 @@ check: ${MAKEFILE_DIR}test.exe
 	$<
 
 %.exe : %.o  staticlib
-	${CC} -Wl,-no-export-dynamic -static-libgcc -static -o $@ $< ${LDFLAGS} $(shell pkg-config --libs ${PKG_CONFIG_PC}) $(shell pkg-config --libs-only-l --static ${PKG_CONFIG_PC}) -lm
+	${CC} -Wl,-no-export-dynamic -static-libgcc -static -o $@ $< ${LDFLAGS} $(shell pkg-config --libs ${PKG_CONFIG_PC}) $(shell pkg-config --libs-only-l --static ${PKG_CONFIG_PC})
 
 %.o: %.c staticlib 
 	${CC} -c $< -o $@ ${CFLAGS}  $(shell pkg-config --cflags ${PKG_CONFIG_PC})
